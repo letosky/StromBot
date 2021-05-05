@@ -4,8 +4,6 @@ from sc2.player import Bot, Computer
 from sc2.constants import *
 
 class StromBot(sc2.BotAI):
-    def __init__(self):
-        self.bases = 1
     
     async def on_step(self, iteration):
         
