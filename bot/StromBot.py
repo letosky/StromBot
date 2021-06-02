@@ -1,40 +1,54 @@
-import sc2 
+import sc2
 from sc2 import run_game, maps, Race, Difficulty
 from sc2.player import Bot, Computer
 from sc2.constants import *
 
 class StromBot(sc2.BotAI):
-    
+    pylon_list = []
     async def on_step(self, iteration):
-        
+
         if iteration == 0:
                 await self.chat_send("(protoss)(glhf)(protoss)")
 
         await self.distribute_workers()
-        
+
         await self.build_workers()
 
         await self.warp_pylons()
 
         await self.take_gas()
 
-        await self.expand() 
-        
+        await self.expand()
+
         await self.warp_gateway()
 
     async def build_workers(self):
-        
+
         if self.workers.amount < self.townhalls.amount*22:
             for nexus in self.townhalls.idle:
-                nexus.train(UnitTypeId.PROBE)
-                    
-        
+                if(self.supply_left > 2):
+                    nexus.train(UnitTypeId.PROBE)
+
     async def warp_pylons(self):
         if self.supply_left < 5 and not self.already_pending(PYLON):
             nexuses = self.structures(UnitTypeId.NEXUS).ready
             if nexuses.exists:
-                if self.can_afford(PYLON):
-                    await self.build(PYLON, near=nexuses.first)
+                if self.supply_cap == 15:
+                    if self.can_afford(PYLON):
+                        await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon)
+                        '''for pylon in self.structures(UnitTypeId.PYLON):
+                            if pylon not in self.pylon_list:
+                                self.pylon_list.append(pylon)'''
+                elif self.supply_cap < 39:
+                    await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first))
+                    '''for pylon in self.structures(UnitTypeId.PYLON):
+                        if pylon not in self.pylon_list:
+                            self.pylon_list.append(pylon)'''
+                else:
+                    await self.build(PYLON, near=nexuses.random.position.towards(self.game_info.map_center, 8))
+                    '''for pylon in self.structures(UnitTypeId.PYLON):
+                        if pylon not in self.pylon_list:
+                            self.pylon_list.append(pylon)'''
 
     async def take_gas(self):
             for nexus in self.townhalls.ready:
@@ -45,25 +59,40 @@ class StromBot(sc2.BotAI):
                     worker = self.select_build_worker(vg.position)
                     if worker is None:
                         break
-                    if(not self.gas_buildings or 
-                        not self.gas_buildings.closer_than(1, vg)
-                        ):
-                        worker.build(UnitTypeId.ASSIMILATOR, vg)
-                        worker.stop(queue=True)
+                    if self.workers.amount > 21:
+                        if((not self.gas_buildings or
+                            not self.gas_buildings.closer_than(1, vg)) and
+                            not self.already_pending(UnitTypeId.ASSIMILATOR)
+                            ):
+                            worker.build(UnitTypeId.ASSIMILATOR, vg)
+                            worker.stop(queue=True)
 
     async def expand(self):
-            if( 
-                self.can_afford(NEXUS) and 
-                (self.workers.amount / self.structures(UnitTypeId.NEXUS).amount > 21) and 
+            if(
+                self.can_afford(NEXUS) and
+                (self.workers.amount / self.structures(UnitTypeId.NEXUS).amount > 21) and
                 not self.already_pending(NEXUS)
             ):
-                await self.expand_now()               
-    
+                await self.expand_now()
+
     async def warp_gateway(self):
-        pass
-    
+        #Here we make a list of pylons so that we can reference some certain ones
+        pylons = self.structures(UnitTypeId.PYLON)
+        if(self.can_afford(UnitTypeId.GATEWAY) and
+        self.structures(UnitTypeId.GATEWAY).amount < 4):
+            if(pylons.amount == 1 and
+            not self.already_pending(UnitTypeId.GATEWAY) and
+            self.structures(UnitTypeId.GATEWAY).ready.amount < 2
+            ):
+                await self.chat_send("So far, so good")
+                await self.chat_send("now making first gateway")
+                await self.build(UnitTypeId.GATEWAY, near=pylons.first.position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+            elif pylons.amount > 1:
+                await self.chat_send("You in the second one")
+                await self.build(UnitTypeId.GATEWAY, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+
 def main():
-    
+
     sc2.run_game(maps.get("AcropolisLE"), [Bot(Race.Protoss, StromBot()), Computer(Race.Terran, Difficulty.Easy)], realtime=False)
 
 if __name__ == '__main__':

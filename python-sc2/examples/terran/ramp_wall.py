@@ -249,7 +249,7 @@ class RampWallBot(sc2.BotAI):
 
 
 def main():
-    map = random.choice(
+    '''map = random.choice(
         [
             # Most maps have 2 upper points at the ramp (len(self.main_base_ramp.upper) == 2)
             "AutomatonLE",
@@ -265,9 +265,9 @@ def main():
             "HonorgroundsLE",  # Has 4 or 9 upper points at the large main base ramp
         ]
     )
-    # map = "ParaSiteLE"
+    # map = "ParaSiteLE" '''
     sc2.run_game(
-        sc2.maps.get(map),
+        sc2.maps.get('AcropolisLE'),
         [Bot(Race.Terran, RampWallBot()), Computer(Race.Zerg, Difficulty.Hard)],
         realtime=True,
         # sc2_version="4.10.1",
