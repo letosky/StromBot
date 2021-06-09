@@ -22,11 +22,18 @@ class StromBot(sc2.BotAI):
 
         await self.warp_gateway()
 
+        #In this iteration of the bot we are only going to use one cyber
+        if self.structures(UnitTypeId.CYBERNETICSCORE).amount < 1:
+            await self.warp_cyber()
+
+        if self.structures(UnitTypeId.FORGE).amount < 3:
+            await self.warp_forge()
+
     async def build_workers(self):
 
         if self.workers.amount < self.townhalls.amount*22:
             for nexus in self.townhalls.idle:
-                if(self.supply_left > 2):
+                if(self.supply_left > 2 or (self.supply_left > 1 and self.already_pending(PYLON))):
                     nexus.train(UnitTypeId.PROBE)
 
     async def warp_pylons(self):
@@ -36,14 +43,8 @@ class StromBot(sc2.BotAI):
                 if self.supply_cap == 15:
                     if self.can_afford(PYLON):
                         await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon)
-                        '''for pylon in self.structures(UnitTypeId.PYLON):
-                            if pylon not in self.pylon_list:
-                                self.pylon_list.append(pylon)'''
                 elif self.supply_cap < 39:
                     await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first))
-                    '''for pylon in self.structures(UnitTypeId.PYLON):
-                        if pylon not in self.pylon_list:
-                            self.pylon_list.append(pylon)'''
                 else:
                     await self.build(PYLON, near=nexuses.random.position.towards(self.game_info.map_center, 8))
                     '''for pylon in self.structures(UnitTypeId.PYLON):
@@ -84,11 +85,8 @@ class StromBot(sc2.BotAI):
             not self.already_pending(UnitTypeId.GATEWAY) and
             self.structures(UnitTypeId.GATEWAY).ready.amount < 2
             ):
-                await self.chat_send("So far, so good")
-                await self.chat_send("now making first gateway")
                 await self.build(UnitTypeId.GATEWAY, near=pylons.first.position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
-            elif pylons.amount > 1:
-                await self.chat_send("You in the second one")
+            elif pylons.ready.amount > 1:
                 await self.build(UnitTypeId.GATEWAY, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
 
 def main():
