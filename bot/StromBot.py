@@ -45,12 +45,9 @@ class StromBot(sc2.BotAI):
                     if self.can_afford(PYLON):
                         await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon)
                 elif self.supply_cap < 39:
-                    await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first))
+                    await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first, 10))
                 else:
                     await self.build(PYLON, near=nexuses.random.position.towards(self.game_info.map_center, 8))
-                    '''for pylon in self.structures(UnitTypeId.PYLON):
-                        if pylon not in self.pylon_list:
-                            self.pylon_list.append(pylon)'''
 
     async def take_gas(self):
             for nexus in self.townhalls.ready:
@@ -100,11 +97,12 @@ class StromBot(sc2.BotAI):
 
     async def warp_forge(self):
         pylons = self.structures(UnitTypeId.PYLON)
-        if (self.can_afford(UnitTypeId.FORGE) and
-        self.structures(UnitTypeId.PYLON).ready.amount > self.structures(UnitTypeId.FORGE).ready.amount and
-        not self.already_pending(UnitTypeId.FORGE)
-        ):
-            self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+        if (self.can_afford(UnitTypeId.FORGE)):
+            if ((self.structures(UnitTypeId.PYLON).ready.amount > self.structures(UnitTypeId.FORGE).ready.amount and
+            not self.already_pending(UnitTypeId.FORGE)) or
+            (pylons.ready.amount == 1)
+            ):
+                self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
 def main():
 
     sc2.run_game(maps.get("AcropolisLE"), [Bot(Race.Protoss, StromBot()), Computer(Race.Terran, Difficulty.Easy)], realtime=True)
