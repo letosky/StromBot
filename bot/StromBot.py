@@ -90,19 +90,19 @@ class StromBot(sc2.BotAI):
     async def warp_cyber(self):
         pylons = self.structures(UnitTypeId.PYLON)
         if (self.can_afford(UnitTypeId.CYBERNETICSCORE) and
-        self.structures(UnitTypeId.PYLON).ready.amount > self.structures(UnitTypeId.CYBERNETICSCORE).ready.amount and
+        pylons.ready.amount > self.structures(UnitTypeId.CYBERNETICSCORE).amount and
+        self.structures(UnitTypeId.GATEWAY).ready.amount > 0 and
+        self.structures(UnitTypeId.FORGE).ready.amount > 0
         not self.already_pending(UnitTypeId.CYBERNETICSCORE)
         ):
-            await self.build(UnitTypeId.CYBERNETICSCORE, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+            await self.build(UnitTypeId.CYBERNETICSCORE, near=pylons[-1].position.towards(self.structures(UnitTypeId.FORGE).first, 1))
 
     async def warp_forge(self):
         pylons = self.structures(UnitTypeId.PYLON)
-        if (self.can_afford(UnitTypeId.FORGE)):
-            if ((self.structures(UnitTypeId.PYLON).ready.amount > self.structures(UnitTypeId.FORGE).ready.amount and
-            not self.already_pending(UnitTypeId.FORGE)) or
-            (pylons.ready.amount == 1)
-            ):
-                self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+        gates = self.structures(UnitTypeId.GATEWAY)
+        if (self.minerals > 149):
+            if ((pylons.ready.amount > self.structures(UnitTypeId.FORGE).amount)):
+                await self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(gates[-1], 4))
 def main():
 
     sc2.run_game(maps.get("AcropolisLE"), [Bot(Race.Protoss, StromBot()), Computer(Race.Terran, Difficulty.Easy)], realtime=True)
