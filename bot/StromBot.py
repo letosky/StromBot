@@ -38,8 +38,8 @@ class StromBot(sc2.BotAI):
                     nexus.train(UnitTypeId.PROBE)
 
     async def warp_pylons(self):
+        nexuses = self.structures(UnitTypeId.NEXUS).ready
         if self.supply_left < 5 and not self.already_pending(PYLON):
-            nexuses = self.structures(UnitTypeId.NEXUS).ready
             if nexuses.exists:
                 if self.supply_cap == 15:
                     if self.can_afford(PYLON):
@@ -48,7 +48,12 @@ class StromBot(sc2.BotAI):
                     await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first, 10))
                 else:
                     await self.build(PYLON, near=nexuses.random.position.towards(self.game_info.map_center, 8))
-
+        elif (self.structures(UnitTypeId.GATEWAY).amount == 1 and
+            self.structures(UnitTypeId.FORGE).amount == 1 and
+            self.structures(UnitTypeId.PYLON).amount < 2 and
+            self.can_afford(UnitTypeId.PYLON)
+            ):
+                await self.build(PYLON, near=self.main_base_ramp.protoss_wall_pylon.towards(nexuses.first, 10))
     async def take_gas(self):
             for nexus in self.townhalls.ready:
                 vespene_geysers = self.vespene_geyser.closer_than(15, nexus)
@@ -92,7 +97,7 @@ class StromBot(sc2.BotAI):
         if (self.can_afford(UnitTypeId.CYBERNETICSCORE) and
         pylons.ready.amount > self.structures(UnitTypeId.CYBERNETICSCORE).amount and
         self.structures(UnitTypeId.GATEWAY).ready.amount > 0 and
-        self.structures(UnitTypeId.FORGE).ready.amount > 0
+        self.structures(UnitTypeId.FORGE).ready.amount > 0 and
         not self.already_pending(UnitTypeId.CYBERNETICSCORE)
         ):
             await self.build(UnitTypeId.CYBERNETICSCORE, near=pylons[-1].position.towards(self.structures(UnitTypeId.FORGE).first, 1))
