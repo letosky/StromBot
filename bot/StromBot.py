@@ -1,3 +1,4 @@
+import unittest
 import sc2
 from sc2 import run_game, maps, Race, Difficulty
 from sc2.player import Bot, Computer
@@ -9,6 +10,9 @@ class StromBot(sc2.BotAI):
     async def on_step(self, iteration):
         forges = self.structures(UnitTypeId.FORGE).ready
         cybers = self.structures(UnitTypeId.CYBERNETICSCORE).ready
+        gates = self.structures(UnitTypeId.GATEWAY).ready + self.structures(UnitTypeId.WARPGATE).ready
+        army = self.units(UnitTypeId.ZEALOT).ready + self.units(UnitTypeId.STALKER).ready
+
         #councils = self.structures(UnitTypeId.TWILIGHTCOUNCIL).ready
 
         if iteration == 0:
@@ -31,9 +35,14 @@ class StromBot(sc2.BotAI):
         await self.expand()
 
         await self.warp_gateway()
-        #We probably want to put a condition on this at some point
-        #Actually we probably want to shift to making this a more general army function which just starts with zealots
-        await self.warp_zealots()
+
+        if gates.amount > 3:
+            await self.warp_robo()
+
+        await self.warp_army()
+
+        if army.amount > 11:
+            await self.attack(army)
 
         #In this iteration of the bot we are only going to use one cyber
         if (self.structures(UnitTypeId.CYBERNETICSCORE).amount < 1):
@@ -114,9 +123,14 @@ class StromBot(sc2.BotAI):
             ):
                 await self.expand_now()
 
+    '''
+    TO DO: FIX THE WARPGATE/GATEWAY WARPING LOGIC!!!!
+    
+    '''
     async def warp_gateway(self):
         #Here we make a list of pylons so that we can reference some certain ones
         pylons = self.structures(UnitTypeId.PYLON)
+        gates = self.structures(UnitTypeId.GATEWAY) + self.structures(UnitTypeId.WARPGATE)
         #NOTE: WE NEVER WANT MORE GATEWAYS THAN UNITS WHICH COME FROM THE GATEWAY
         #Here we are getting a count of all the units that come from the gateway
         gw_units = (self.units(UnitTypeId.ZEALOT).amount + self.units(UnitTypeId.STALKER).amount + self.units(UnitTypeId.SENTRY).amount +
@@ -128,29 +142,28 @@ class StromBot(sc2.BotAI):
         if(self.can_afford(UnitTypeId.GATEWAY)):
             #If we have no gateways, then make a gateway
             #This is like the most basic thing here
-            if self.structures(UnitTypeId.GATEWAY).amount < 1:
+            if gates.amount < 1:
                 await self.build(UnitTypeId.GATEWAY, near=pylons.first.position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
             #Here we check if we have less than 4 gates AND 
             #Do we have more units than we have gateways
             #We don't want to be spending minerals on buildings before we have units
-            elif (self.structures(UnitTypeId.GATEWAY).amount < 4 and
-            self.structures(UnitTypeId.WARPGATE).amount < 4 and 
-            gw_units > self.structures(UnitTypeId.GATEWAY).amount and 
+            elif (gates.amount < 4 and 
             self.structures(UnitTypeId.TWILIGHTCOUNCIL).ready.amount > 0):
+                if gw_units > self.structures(UnitTypeId.GATEWAY).amount:
                 #The first check is:
                 #Do we have exactly 1 pylon, 
                 #less than 2 gateways
                 # and we are not currently warping in a new gateway
                 #This gateway will go near our only pylon
-                if(pylons.amount == 1 and
-                not self.already_pending(UnitTypeId.GATEWAY) and
-                self.structures(UnitTypeId.GATEWAY).ready.amount < 2
-                ):
-                    await self.build(UnitTypeId.GATEWAY, near=pylons.first.position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+                    if(pylons.amount == 1 and
+                    not self.already_pending(UnitTypeId.GATEWAY) and
+                    self.structures(UnitTypeId.GATEWAY).ready.amount < 2
+                    ):
+                        await self.build(UnitTypeId.GATEWAY, near=pylons.first.position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
                 #So if we have more than 1 pylon
                 #We want to build this gateway near the last pylon built
-                elif pylons.ready.amount > 2:
-                    await self.build(UnitTypeId.GATEWAY, near=pylons[1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
+                    elif pylons.ready.amount > 2:
+                        await self.build(UnitTypeId.GATEWAY, near=pylons[1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
     #Here we warp in our cybernetics cores
     async def warp_cyber(self):
         pylons = self.structures(UnitTypeId.PYLON)
@@ -188,14 +201,48 @@ class StromBot(sc2.BotAI):
             (gates.amount > forges.amount)):
                 await self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(gates[-1], 4))
 
-    async def warp_zealots(self):
+    async def warp_robo(self):
+        if self.can_afford(UnitTypeId.ROBOTICSFACILITY):
+            
+
+    async def warp_army(self):
         #First we want to check if we have gates to warp in warp_zealots
-        if self.structures(UnitTypeId.GATEWAY).amount >= 1:
-            if self.can_afford(UnitTypeId.ZEALOT):
+        warps = self.structures(UnitTypeId.WARPGATE).ready
+        stalkers = self.units(UnitTypeId.STALKER).ready.amount
+        zealots = self.units(UnitTypeId.ZEALOT).ready.amount
+        if warps.amount == 0:
+            if self.structures(UnitTypeId.GATEWAY).amount >= 1:
+                if self.can_afford(UnitTypeId.ZEALOT):
                 #Now we will make a list of gateways
-                gates = self.structures(UnitTypeId.GATEWAY).ready
-                for g in gates.idle:
-                    g.train(UnitTypeId.ZEALOT)
+                    gates = self.structures(UnitTypeId.GATEWAY).ready
+                    for g in gates.idle:
+                        g.train(UnitTypeId.ZEALOT)
+# This just gets you into warp gates, we still need game logic for how many and which units to warp in
+        elif (warps.amount > 0):
+            await self.chat_send("In the warp function")
+            for w in warps:
+                actions = await self.get_available_abilities(w)
+                await self.chat_send("Trying to warp stalkers")
+                #await self.chat_send("In If Statement")
+                pylon = self.structures(UnitTypeId.PYLON).ready.closest_to(self.enemy_start_locations[0])
+                    
+                if AbilityId.WARPGATETRAIN_STALKER in actions:
+                    pos = pylon.position.to2.random_on_distance(4)
+                    placement = await self.find_placement(AbilityId.WARPGATETRAIN_STALKER, pos, placement_step=1)
+                    if placement is None:
+                        #await self.chat_send("NO PLACEMENT")
+                        return
+                    w.warp_in(UnitTypeId.STALKER, placement)
+    async def attack(self, army):
+        pass
+        for unit in army.idle:
+            #Basically gets a list of enemy units that can be attacked, and enemy structures that can be attacked
+            targets = (self.enemy_units | self.enemy_structures).filter(lambda unit: unit.can_be_attacked)
+            if targets:
+                target = targets.closest_to(unit)
+                unit.attack(target)
+            else:
+                unit.attack(self.enemy_start_locations[0])
 
     async def chrono_boost(self):
         #The first check we make is:
