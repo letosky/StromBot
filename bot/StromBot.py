@@ -36,26 +36,21 @@ class StromBot(sc2.BotAI):
 
         await self.warp_gateway()
 
-        if gates.amount > 3:
-            await self.warp_robo()
+        await self.warp_robo(gates)
 
         await self.warp_army()
 
-        if army.amount > 11:
-            await self.attack(army)
+        await self.attack(army)
 
-        #In this iteration of the bot we are only going to use one cyber
-        if (self.structures(UnitTypeId.CYBERNETICSCORE).amount < 1):
-            await self.warp_cyber()
+        await self.warp_cyber(cybers, gates, forges)
         
-        if self.structures(UnitTypeId.CYBERNETICSCORE).amount > 0:
-            await self.warp_twilight()
+        await self.warp_twilight(cybers)
 
-        if self.structures(UnitTypeId.TWILIGHTCOUNCIL).ready.amount == 1:
-            await self.get_charge()
+        await self.get_charge()
 
-        if self.structures(UnitTypeId.FORGE).amount < 3:
-            await self.warp_forge()
+        #This is extremely build dependent
+        #We are building 3 forges in this function because this is an all ground army 
+        await self.warp_forge(gates)
 
         if (forges.amount >= 1):
             for f in forges:
@@ -66,9 +61,6 @@ class StromBot(sc2.BotAI):
             for c in cybers:
                 if c.is_idle:
                     await self.cyber_upgrade(c)
-        '''
-        We need to start thinking about a function for attacking with our army
-        '''
 
     async def build_workers(self):
 
@@ -165,21 +157,26 @@ class StromBot(sc2.BotAI):
                     elif pylons.ready.amount > 2:
                         await self.build(UnitTypeId.GATEWAY, near=pylons[1].position.towards(self.structures(UnitTypeId.NEXUS).first, 8))
     #Here we warp in our cybernetics cores
-    async def warp_cyber(self):
+    async def warp_cyber(self, cybers, gates, forges):
         pylons = self.structures(UnitTypeId.PYLON)
         #This condition checks the following:
-        #Can we afford a cybernetics core
-        #
+        #Can we afford a cybernetics core?
+        #Do we have at least 1 more Pylon than Cyber? - Maybe make this better, like remove it or refine it
+        #Do we have at least 1 gateway?
+        #Do we have at least 1 forge?
+        #Are we NOT currently warping in a Cyber
         if (self.can_afford(UnitTypeId.CYBERNETICSCORE) and
-        pylons.ready.amount-1 > self.structures(UnitTypeId.CYBERNETICSCORE).amount and
-        self.structures(UnitTypeId.GATEWAY).ready.amount > 0 and
-        self.structures(UnitTypeId.FORGE).ready.amount > 0 and
+        pylons.ready.amount-1 > cybers.amount and
+        gates.amount > 0 and
+        forges.amount > 0 and
+        cybers.amount < 1 and
         not self.already_pending(UnitTypeId.CYBERNETICSCORE)
         ):
             await self.build(UnitTypeId.CYBERNETICSCORE, near=pylons[-1].position.towards(self.structures(UnitTypeId.FORGE).first, 1))
     
-    async def warp_twilight(self):
-        pylons = self.structures(UnitTypeId.PYLON)
+    async def warp_twilight(self, cybers):
+        if cybers.amount > 0:
+            pylons = self.structures(UnitTypeId.PYLON)
 
         if(self.can_afford(UnitTypeId.TWILIGHTCOUNCIL) and 
         self.structures(UnitTypeId.TWILIGHTCOUNCIL).amount == 0 and 
@@ -188,21 +185,23 @@ class StromBot(sc2.BotAI):
 
     async def get_charge(self):
         if (UpgradeId.CHARGE not in self.game_data.upgrades and 
-        self.can_afford(UpgradeId.CHARGE)):
+        self.can_afford(UpgradeId.CHARGE) and
+        self.structures(UnitTypeId.TWILIGHTCOUNCIL).ready.amount == 1):
             self.research(UpgradeId.CHARGE)
 
-    async def warp_forge(self):
+    async def warp_forge(self, gates):
         pylons = self.structures(UnitTypeId.PYLON)
-        gates = self.structures(UnitTypeId.GATEWAY)
         forges = self.structures(UnitTypeId.FORGE)
         if (self.minerals > 149):
-            if ((pylons.ready.amount > self.structures(UnitTypeId.FORGE).amount) and
+            if ((pylons.ready.amount > forges.amount) and
             gates.amount >= 1 and
             (gates.amount > forges.amount)):
                 await self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(gates[-1], 4))
 
-    async def warp_robo(self):
-        if self.can_afford(UnitTypeId.ROBOTICSFACILITY):
+    async def warp_robo(self, gates):
+        if (gates.amount > 3 and 
+        self.can_afford(UnitTypeId.ROBOTICSFACILITY)):
+            pass
             
 
     async def warp_army(self):
@@ -234,15 +233,17 @@ class StromBot(sc2.BotAI):
                         return
                     w.warp_in(UnitTypeId.STALKER, placement)
     async def attack(self, army):
-        pass
-        for unit in army.idle:
-            #Basically gets a list of enemy units that can be attacked, and enemy structures that can be attacked
-            targets = (self.enemy_units | self.enemy_structures).filter(lambda unit: unit.can_be_attacked)
-            if targets:
-                target = targets.closest_to(unit)
-                unit.attack(target)
-            else:
-                unit.attack(self.enemy_start_locations[0])
+        #This beats the easy AI
+        #Obviously we need better logic for better AI
+        if army.amount > 11:
+            for unit in army.idle:
+                #Basically gets a list of enemy units that can be attacked, and enemy structures that can be attacked
+                targets = (self.enemy_units | self.enemy_structures).filter(lambda unit: unit.can_be_attacked)
+                if targets:
+                    target = targets.closest_to(unit)
+                    unit.attack(target)
+                else:
+                    unit.attack(self.enemy_start_locations[0])
 
     async def chrono_boost(self):
         #The first check we make is:
