@@ -11,7 +11,7 @@ class StromBot(sc2.BotAI):
         forges = self.structures(UnitTypeId.FORGE).ready
         cybers = self.structures(UnitTypeId.CYBERNETICSCORE).ready
         gates = self.structures(UnitTypeId.GATEWAY).ready + self.structures(UnitTypeId.WARPGATE).ready
-        army = self.units(UnitTypeId.ZEALOT).ready + self.units(UnitTypeId.STALKER).ready
+        army = self.units(UnitTypeId.ZEALOT).ready + self.units(UnitTypeId.STALKER).ready + self.units(UnitTypeId.IMMORTAL).ready
 
         #councils = self.structures(UnitTypeId.TWILIGHTCOUNCIL).ready
 
@@ -38,7 +38,9 @@ class StromBot(sc2.BotAI):
 
         await self.warp_robo(gates)
 
-        await self.warp_army()
+        await self.warpgate_army()
+        
+        await self.warp_robo_units()
 
         await self.attack(army)
 
@@ -52,11 +54,15 @@ class StromBot(sc2.BotAI):
         #We are building 3 forges in this function because this is an all ground army 
         await self.warp_forge(gates)
 
+        #Also the logic of this is also build dependent
+        #If we change/improve our build, we will want to look at this and possibly revise it
         if (forges.amount >= 1):
             for f in forges:
                 if f.is_idle:
                     await self.forge_upgrade(f)
 
+        #Right now we are only getting warpgates
+        #If we go voidrays at some point then we will want to include air upgrades
         if (cybers.amount > 0):
             for c in cybers:
                 if c.is_idle:
@@ -199,12 +205,15 @@ class StromBot(sc2.BotAI):
                 await self.build(UnitTypeId.FORGE, near=pylons[-1].position.towards(gates[-1], 4))
 
     async def warp_robo(self, gates):
+        pylons = self.structures(UnitTypeId.PYLON)
+        robos = self.structures(UnitTypeId.ROBOTICSFACILITY)
         if (gates.amount > 3 and 
-        self.can_afford(UnitTypeId.ROBOTICSFACILITY)):
-            pass
+        self.can_afford(UnitTypeId.ROBOTICSFACILITY) and 
+        robos.amount < 1):
+            await self.build(UnitTypeId.ROBOTICSFACILITY, near=pylons[-1].position.towards(gates[-1], 4))
             
 
-    async def warp_army(self):
+    async def warpgate_army(self):
         #First we want to check if we have gates to warp in warp_zealots
         warps = self.structures(UnitTypeId.WARPGATE).ready
         stalkers = self.units(UnitTypeId.STALKER).ready.amount
@@ -216,13 +225,10 @@ class StromBot(sc2.BotAI):
                     gates = self.structures(UnitTypeId.GATEWAY).ready
                     for g in gates.idle:
                         g.train(UnitTypeId.ZEALOT)
-# This just gets you into warp gates, we still need game logic for how many and which units to warp in
+        # This just gets you into warp gates, we still need game logic for how many and which units to warp in
         elif (warps.amount > 0):
-            await self.chat_send("In the warp function")
             for w in warps:
                 actions = await self.get_available_abilities(w)
-                await self.chat_send("Trying to warp stalkers")
-                #await self.chat_send("In If Statement")
                 pylon = self.structures(UnitTypeId.PYLON).ready.closest_to(self.enemy_start_locations[0])
                     
                 if AbilityId.WARPGATETRAIN_STALKER in actions:
@@ -232,6 +238,23 @@ class StromBot(sc2.BotAI):
                         #await self.chat_send("NO PLACEMENT")
                         return
                     w.warp_in(UnitTypeId.STALKER, placement)
+    
+    async def warp_robo_units(self):
+        robos = self.structures(UnitTypeId.ROBOTICSFACILITY).ready
+
+        #Here we are going to make immortals for now
+        #Later we might want to develop some other units, and include logic for that
+        #(Colossi or observers, or whatever)
+        
+        '''Also note that we are only making 2, and this is pretty much arbitrary'''
+        if(robos.amount < 1 and
+        self.can_afford(UnitTypeId.IMMORTAL) and
+        self.units(UnitTypeId.IMMORTAL).ready.amount < 2):
+            for r in robos:
+                if r.is_idle:
+                    r.train(UnitTypeId.IMMORTAL)
+
+     
     async def attack(self, army):
         #This beats the easy AI
         #Obviously we need better logic for better AI
